@@ -1,28 +1,22 @@
 const jwt = require('jsonwebtoken');
+const User = require('../models/user');
 const dotenv = require('dotenv');
 dotenv.config();
 
-module.exports = function (req, res, next) {
-  console.log('middleware========>>>>>');
-  const authHeader = req.header('authorization');
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'no token authorization deny' });
-  }
 
-  const token = authHeader.split(' ')[1];
-  console.log(token);
-  
-  
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('decoded token ====>', decoded);
-  
-    req.user = decoded;
-    
+const auth = async (req, res, next) => {
+  const token = req.headers['authorization'];
+  if (!token) return res.status(401).json({ message: 'No token provided' });
+
+  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+    if (err) return res.status(403).json({ message: 'Failed to authenticate token' });
+
+    const user = await User.findById(decoded.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    req.user = user;
     next();
-  } catch (err) {
-    console.error('token verification faileedd==>', err);
-    res.status(401).json({ message: 'invalid token' });
-  }
+  });
 };
+
+module.exports = { auth };
